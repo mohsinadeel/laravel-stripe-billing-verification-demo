@@ -1,6 +1,6 @@
 # Laravel Stripe billing verification demo
 
-This is a self-directed working demonstration in a synthetic Laravel application. It implements one intended Stripe test-mode recurring price and initial paid subscription path; that path has been checked with local fixtures, but an actual Stripe test-mode payment has not been run. It is not a client case study or evidence of production readiness.
+This is a self-directed working demonstration in a synthetic Laravel application. The initial paid-subscription path was verified once in Stripe test mode (S01): a US$10 invoice was paid, the signed `invoice.payment_succeeded` webhook was accepted, and the app recorded the paid period and reported access through its expiry. See `evidence/SCENARIOS.md` for actions, observed results and limits. S02–S10 remain Not run. This is not a client case study or evidence of production readiness.
 
 ## Access policy
 
@@ -22,7 +22,7 @@ The current listener only records completed positive test-mode payments. It does
 - Laravel framework 13.34.0; PHP target 8.4; Cashier 16.8.0; Stripe PHP SDK 21.3.2. Exact dependency versions are in `composer.lock`.
 - Container base: `php:8.4-cli-alpine`; SQLite through `pdo_sqlite`.
 - Official guidance checked 5 October 2026: [Laravel 13 release notes](https://laravel.com/docs/13.x/releases), [Cashier billing](https://laravel.com/docs/13.x/billing), [Stripe invoice object](https://docs.stripe.com/api/invoices/object), [Stripe invoice line object](https://docs.stripe.com/api/invoice-line-item/object), and [Stripe test clocks](https://docs.stripe.com/api/test_clocks).
-- Cashier 16 uses Stripe API version `2025-06-30.basil` per its documentation. The invoice line shape must still be verified against an actual test-mode delivery before S01 is considered integration-verified.
+- Cashier 16 uses Stripe API version `2025-06-30.basil` per its documentation. S01 verified one actual test-mode invoice line: one monthly plan line with quantity 1 and a service period that matches the app record to the date; the stored expiry includes the exact timestamp. See `evidence/SCENARIOS.md`; this single run does not verify other invoice shapes or subscription lifecycle scenarios.
 
 ## Local setup
 
