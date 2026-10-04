@@ -1,0 +1,16 @@
+services:
+  app:
+    build: .
+    env_file: .env
+    environment:
+      APP_ENV: local
+      APP_DEBUG: "false"
+      DB_CONNECTION: sqlite
+      DB_DATABASE: /data/database.sqlite
+    ports:
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - billing-data:/data
+
+volumes:
+  billing-data:
