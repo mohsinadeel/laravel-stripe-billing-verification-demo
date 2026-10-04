@@ -1,6 +1,6 @@
 # Scenario evidence
 
-Date: 5 October 2026 (Asia/Karachi). Commit: none yet; local working tree only.
+Date: 5 October 2026 (Asia/Karachi). Code commit: `09d3f8264974d5549f1bddefeaa4f789be544acb` (local only).
 
 | ID | Status | Evidence type | Current observation and limit |
 | --- | --- | --- | --- |
@@ -19,7 +19,7 @@ No scenario is marked integration-verified. Record each future run with starting
 
 ## Local verification record
 
-Date/time: 5 October 2026 (Asia/Karachi). Commit: pending local commit; these commands ran against the working tree.
+Date/time: 5 October 2026 (Asia/Karachi). Code commit: `09d3f8264974d5549f1bddefeaa4f789be544acb`; checks ran immediately before this local commit.
 
 1. `docker compose build --quiet`. Starting condition: Laravel/Cashier source and Dockerfile in the local checkout. Expected: image with PHP 8.4, SQLite PDO, bcmath and locked dependencies. Observed: image built successfully. Limit: image build does not prove Stripe integration.
 2. `docker compose run --rm --no-deps -e APP_ENV=testing -e DB_DATABASE=:memory: app php artisan test --no-ansi --do-not-cache-result --display-warnings`. Starting condition: in-memory SQLite, synthetic `cus_fixture_1`, local signed invoice fixture, no paid period. Expected: valid paid invoice permits access until expiry, repeated delivery leaves one paid period, invalid signature is rejected. Observed: 2 tests passed, 8 assertions, no warnings. Limit: signatures and invoice payload are locally generated fixtures; no Stripe delivery or concurrent replay.
