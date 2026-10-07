@@ -39,7 +39,7 @@
         <h2 id="test-flow-heading">How to test this demo</h2>
         <ol class="steps">
             <li><strong>Configure the test environment.</strong> Follow the README's Local setup steps with Stripe <strong>test-mode</strong> API values and one recurring test price in the ignored <code>.env</code>. Never use live keys or real card details.</li>
-            <li><strong>Forward signed webhooks.</strong> In a separate terminal, run <code>stripe listen --forward-to http://localhost:8000/stripe/webhook</code>. Put the printed <code>whsec_…</code> value in <code>STRIPE_WEBHOOK_SECRET</code> in <code>.env</code>, then from the repository folder run <code>docker compose up -d --force-recreate app</code> so Docker loads the new values. Keep the listener running while you check out.</li>
+            <li><strong>Forward signed webhooks.</strong> In a separate terminal, run <code>stripe listen --forward-to {{ url('/stripe/webhook') }}</code>. Put the printed <code>whsec_…</code> value in <code>STRIPE_WEBHOOK_SECRET</code> in <code>.env</code>, then from the repository folder run <code>docker compose exec laravel.test php artisan config:clear</code> so Laravel loads the new values. Keep the listener running while you check out.</li>
             <li><strong>Complete a test checkout.</strong> Select <em>Start test checkout</em> below, then use a test card from Stripe's testing documentation on the hosted Checkout page.</li>
             <li><strong>Check the result.</strong> Return to this page. The redirect alone does not grant access; wait for the signed invoice webhook, then refresh. A successful paid invoice should appear in the state below and the protected feature should allow access.</li>
         </ol>
