@@ -28,17 +28,17 @@ The current listener only records completed positive test-mode payments. It does
 
 Prerequisites: Docker Desktop with a working Linux engine, Composer, a Stripe test-mode account, one recurring test price, and Stripe CLI. The Sail shell wrapper on Windows requires WSL2; the equivalent Docker Compose commands below work from PowerShell. See [Sail documentation](https://laravel.com/framework/docs/sail).
 
-Run these commands from this repository, independently of the parent website:
+Run these commands from this repository, after starting and migrating the main website against the shared MySQL database:
 
 1. Run `composer install`, then copy `.env.example` to `.env` if it does not already exist. Keep `APP_URL=http://localhost:8081`, `APP_PORT=8081`, `DB_HOST=mysql` and `DB_CONNECTION=mysql`.
 2. Run `docker compose up -d --build --wait` to build Sail and start its app and MySQL services.
-3. Run `docker compose exec laravel.test php artisan key:generate` only for a new `.env`. Run `docker compose exec laravel.test php artisan migrate --seed` to initialise the synthetic database.
+3. Run `docker compose exec laravel.test php artisan key:generate` only for a new `.env`. Run `docker compose exec laravel.test php artisan migrate` after the main application has migrated the shared users schema.
 4. Set the Stripe test keys and recurring price in the ignored `.env`. Run `stripe listen --forward-to http://localhost:8081/stripe/webhook`, put its signing secret in `.env`, then run `docker compose exec laravel.test php artisan config:clear`. Sail mounts the source and `.env`; an app-container recreation is not required for these Laravel settings.
 5. Open `http://localhost:8081`, start test Checkout, and pay with an [official Stripe test card](https://docs.stripe.com/testing). The Checkout return stays pending until the signed paid invoice is handled.
 
 Compose project `stripe-billing-demo` owns its network and MySQL volume. App port 8081, optional Vite port 5174 and MySQL host port 3308 bind only to localhost. Main-site ports remain separate. MySQL internally uses port 3306. The session cookie is `stripe_billing_demo_session`.
 
-The demo has no login and uses one synthetic user. It is intended only for local verification. Public access controls and deployment under the proposed URL prefix remain to verify before hosting.
+The demo requires a separate login using the main application account. Main owns the shared users table; this app owns prefixed billing records and a separate session. Public access controls and deployment under the proposed URL prefix remain to verify before hosting.
 
 ## Checks and evidence
 
@@ -60,6 +60,20 @@ Before running it, provide a server-only `.env` inside the demo repository direc
 - `SESSION_COOKIE=stripe_billing_demo_session`, `SESSION_PATH=/laravel-stripe-billing-verification-demo`, `SESSION_SECURE_COOKIE=true`, `SESSION_DOMAIN=null`.
 - Separate Stripe test-mode settings only if needed for an authorised hosted verification. Never configure live payment keys for this working demonstration.
 
-The deployment seeds the synthetic subscriber idempotently. Hosted Checkout remains disabled because it is currently restricted to `APP_ENV=local`; do not set production to local to bypass that restriction. The public report is a shared synthetic state, not a per-visitor billing sandbox.
+The demo seeder does not create users; create accounts through the main application. Hosted Checkout remains disabled because it is currently restricted to `APP_ENV=local`; do not set production to local to bypass that restriction. The report displays only the signed-in user's billing state.
 
 Live verification is pending: main `/`, demo prefix with and without a trailing slash, demo `/up`, `/protected`, a missing route, POST webhook signature rejection, generated links and session cookie paths. Requests to demo `/.env`, `/composer.json` and `/vendor/autoload.php` must not expose files. A local Sail check does not validate Apache `.htaccess` or symlink handling.
+
+## Shared database and separate logins — 8 October 2026
+
+This agreement supersedes the earlier standalone database setup. Main and demo use identical MySQL credentials and database name. Main owns unprefixed `users`, `migrations` and Cashier customer columns (`stripe_id`, payment-method fields and trial expiry). The demo's `shared_users` connection ignores the prefix, while its default MySQL connection uses `DB_TABLE_PREFIX=stripe_`. Custom Cashier subscription/item models explicitly use the prefixed connection. The demo neither creates nor drops users or customer columns. User references are indexed IDs; there is currently no cross-connection foreign-key constraint or account-deletion cleanup.
+
+Main server `.env`: `DB_TABLE_PREFIX=` and `DB_MIGRATIONS_TABLE=migrations`. Demo server `.env`: `DB_TABLE_PREFIX=stripe_` and `DB_MIGRATIONS_TABLE=migrations` (resulting table `stripe_migrations`). Both use `SESSION_DRIVER=file`, separate `APP_KEY` values and separate session cookies. Main uses `SESSION_COOKIE=demos_session` and `SESSION_PATH=/`; demo uses `SESSION_COOKIE=stripe_demo_session` and `SESSION_PATH=/laravel-stripe-billing-verification-demo`. Both use HTTPS-only cookies on the server. Local HTTP uses `SESSION_PATH=/` and HTTPS-only cookies disabled.
+
+Deploy main first, then demo. With the previously confirmed disposable database reset, main creates the users schema and demo creates only prefixed tables. Do not change prefixes on populated databases or run `migrate:fresh` against the shared database. Demo rollback leaves shared users and customer fields intact.
+
+For local shared operation, the demo's ignored `.env` connects to the main Sail MySQL service through `DB_HOST=host.docker.internal`, `DB_PORT=3307`, and the main app database credentials. Its old MySQL volume is preserved. The main MySQL service must remain running; the main web container need not remain running.
+
+Create an account through main, then sign in separately to the demo. This initial demo login rejects accounts with two-factor enabled until a corresponding challenge is implemented. Signing out of the demo does not invalidate main's session; changing the shared password affects credentials in both apps. Hosted Checkout remains disabled by the existing local-only guard.
+
+CI runs on pushes and pull requests using Sail/MySQL. It creates a minimal shared-user fixture only in database `testing`, migrates the demo's prefixed tables, and uses database transactions for test cleanup. It does not call Stripe APIs or claim a new Stripe integration result.

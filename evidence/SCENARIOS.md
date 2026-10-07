@@ -63,3 +63,11 @@ Uncommitted changes based on HEAD 49f97afb1b0fa24c83ced64ce795751cdb367939. Both
 ## Commit references — 7 October 2026
 
 The Sail/MySQL conversion is now committed locally as `69339fd`; deployment preparation is committed as `a2c6e9d`. The verification records above describe checks performed before these commits against the same implementation. Creating commits did not rerun or extend the verified scenarios. No push or deployment has occurred; real Stripe S01 on MySQL and Apache routing remain unverified.
+
+## Shared users and prefixed demo tables — 8 October 2026
+
+Verification before implementation commit: main Sail/PHP 8.4/MySQL composer ci:check passed (Pint, PHPStan, 34 tests/83 assertions). Main migrated the Cashier customer fields on users. Demo migrated into the same local MySQL database with DB_TABLE_PREFIX=stripe_, retaining the shared unprefixed users table and creating stripe_migrations and stripe-owned tables. Initial seven regression tests passed against the main-created shared schema. The final demo suite passed against a fresh disposable MySQL database using its test-only shared-user fixture: 9 tests/40 assertions. It covers signed invoice entitlement/expiry, repeated invoice delivery, invalid signature, login/logout, invalid credentials, guest redirects, two-factor bypass refusal, hosted Checkout refusal, prefixed Cashier relations and another user's entitlement isolation. Demo CI YAML and shell syntax passed. No actual Stripe integration scenario was rerun.
+
+Main owns users and Cashier customer columns; demo migrations no longer create/drop them. Receipts are now associated with their user. There is no cross-connection foreign-key constraint or account-deletion cleanup in this slice. Separate keys/cookies/file sessions are configured through server environment values. Live subpath login/cookie behaviour and the new deployment have not yet been verified.
+
+Mohsin confirmed the server database is disposable and cleared its tables for this transition. Deploy the new main revision first, then the new demo revision; do not rerun an old deployment attempt pinned to earlier commits. Create users through main, then sign in to the demo separately.

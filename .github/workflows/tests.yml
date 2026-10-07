@@ -1,0 +1,40 @@
+name: Billing fixture tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Set up PHP for dependency bootstrap
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240
+        with:
+          php-version: '8.4'
+          tools: composer:v2
+          coverage: none
+      - name: Prepare locked dependencies and test environment
+        run: |
+          composer install --no-interaction --no-progress --prefer-dist
+          cp .env.example .env
+          php artisan key:generate --no-interaction
+      - name: Start Sail and MySQL
+        run: docker compose -p stripe-demo-ci up -d --build --wait --wait-timeout 180
+      - name: Run MySQL fixtures without Stripe API access
+        run: docker compose -p stripe-demo-ci exec -T laravel.test php artisan test --no-ansi --do-not-cache-result
+      - name: Show failure logs
+        if: failure()
+        run: docker compose -p stripe-demo-ci logs --no-color --tail=100
+      - name: Clean up the CI stack
+        if: always()
+        run: docker compose -p stripe-demo-ci down --volumes --remove-orphans
