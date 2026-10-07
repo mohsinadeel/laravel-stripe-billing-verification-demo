@@ -4,15 +4,15 @@ namespace App\Http\Controllers;
 
 use App\Models\PaidPeriod;
 use App\Models\StripeEventReceipt;
-use App\Models\User;
+use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\View\View;
 
 class DemoController extends Controller
 {
-    public function index(): View
+    public function index(Request $request): View
     {
-        $user = User::query()->where('email', 'demo@example.test')->firstOrFail();
+        $user = $request->user();
         $paidUntil = PaidPeriod::query()->where('user_id', $user->id)->max('period_end');
         $hasAccess = $paidUntil !== null && now()->lessThan($paidUntil);
 
@@ -22,19 +22,19 @@ class DemoController extends Controller
             'paidUntil' => $paidUntil,
             'hasAccess' => $hasAccess,
             'latestPeriod' => PaidPeriod::query()->where('user_id', $user->id)->latest('id')->first(),
-            'latestReceipt' => StripeEventReceipt::query()->latest('id')->first(),
+            'latestReceipt' => StripeEventReceipt::query()->where('user_id', $user->id)->latest('id')->first(),
             'planConfigured' => str_starts_with((string) config('services.stripe.demo_price_id'), 'price_')
                 && config('services.stripe.demo_price_id') !== 'price_replace_me',
         ]);
     }
 
-    public function checkout()
+    public function checkout(Request $request)
     {
         abort_unless(app()->environment('local'), 403);
         abort_unless(str_starts_with((string) config('cashier.secret'), 'sk_test_') && config('cashier.secret') !== 'sk_test_replace_me', 503);
         abort_unless(str_starts_with((string) config('services.stripe.demo_price_id'), 'price_') && config('services.stripe.demo_price_id') !== 'price_replace_me', 503);
 
-        $user = User::query()->where('email', 'demo@example.test')->firstOrFail();
+        $user = $request->user();
         abort_if($user->subscription('default') !== null, 409, 'This synthetic user already has a subscription.');
 
         return $user->newSubscription('default', config('services.stripe.demo_price_id'))
@@ -44,9 +44,9 @@ class DemoController extends Controller
             ]);
     }
 
-    public function protected(): Response
+    public function protected(Request $request): Response
     {
-        $user = User::query()->where('email', 'demo@example.test')->firstOrFail();
+        $user = $request->user();
         $paidUntil = PaidPeriod::query()->where('user_id', $user->id)->max('period_end');
 
         abort_unless($paidUntil !== null && now()->lessThan($paidUntil), 403, 'No current paid entitlement.');

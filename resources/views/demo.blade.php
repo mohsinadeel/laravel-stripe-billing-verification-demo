@@ -23,7 +23,8 @@
 </head>
 <body><main>
     <h1>Stripe billing verification</h1>
-    <p class="muted">Self-directed working demonstration. Synthetic user and test-mode payments only.</p>
+    <form method="POST" action="{{ route('logout') }}">@csrf <button type="submit">Sign out of this demo</button></form>
+    <p class="muted">Self-directed working demonstration. Test-mode payments only. Signed in as {{ $user->email }}.</p>
 
     @if (request('checkout') === 'returned')
         @if ($hasAccess && $latestPeriod?->stripe_invoice_id)

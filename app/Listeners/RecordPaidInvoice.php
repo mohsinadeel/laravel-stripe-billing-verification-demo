@@ -78,6 +78,7 @@ class RecordPaidInvoice
             ]);
 
             StripeEventReceipt::firstOrCreate(['stripe_event_id' => $eventId], [
+                'user_id' => $user->getKey(),
                 'event_type' => 'invoice.payment_succeeded',
                 'status' => 'completed',
                 'processed_at' => now(),

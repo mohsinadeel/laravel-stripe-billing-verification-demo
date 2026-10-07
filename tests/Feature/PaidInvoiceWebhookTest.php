@@ -3,13 +3,11 @@
 namespace Tests\Feature;
 
 use App\Models\User;
-use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Testing\TestResponse;
 use Tests\TestCase;
 
 class PaidInvoiceWebhookTest extends TestCase
 {
-    use RefreshDatabase;
-
     private function invoicePayload(int $end): array
     {
         return [
@@ -32,7 +30,7 @@ class PaidInvoiceWebhookTest extends TestCase
         ];
     }
 
-    private function signedPost(array $payload): \Illuminate\Testing\TestResponse
+    private function signedPost(array $payload): TestResponse
     {
         $body = json_encode($payload, JSON_THROW_ON_ERROR);
         $timestamp = time();
@@ -48,7 +46,8 @@ class PaidInvoiceWebhookTest extends TestCase
     {
         config()->set('cashier.webhook.secret', 'whsec_fixture_secret');
         config()->set('services.stripe.demo_price_id', 'price_fixture_1');
-        User::factory()->create(['email' => 'demo@example.test', 'stripe_id' => 'cus_fixture_1']);
+        $user = User::factory()->create(['email' => 'demo@example.test', 'stripe_id' => 'cus_fixture_1']);
+        $this->actingAs($user);
         $end = now()->addHour()->timestamp;
 
         $this->get('/protected')->assertForbidden();
@@ -65,7 +64,7 @@ class PaidInvoiceWebhookTest extends TestCase
     {
         config()->set('cashier.webhook.secret', 'whsec_fixture_secret');
         config()->set('services.stripe.demo_price_id', 'price_fixture_1');
-        User::factory()->create(['email' => 'demo@example.test', 'stripe_id' => 'cus_fixture_1']);
+        $user = User::factory()->create(['email' => 'demo@example.test', 'stripe_id' => 'cus_fixture_1']);
 
         $this->withHeader('Stripe-Signature', 't=1,v1=invalid')
             ->postJson('/stripe/webhook', $this->invoicePayload(now()->addHour()->timestamp))

@@ -15,6 +15,8 @@ use Laravel\Cashier\Billable;
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
+    protected $connection = 'shared_users';
+
     /** @use HasFactory<UserFactory> */
     use Billable, HasFactory, Notifiable;
 
