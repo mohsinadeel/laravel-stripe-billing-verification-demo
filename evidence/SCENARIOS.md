@@ -71,3 +71,7 @@ Verification before implementation commit: main Sail/PHP 8.4/MySQL composer ci:c
 Main owns users and Cashier customer columns; demo migrations no longer create/drop them. Receipts are now associated with their user. There is no cross-connection foreign-key constraint or account-deletion cleanup in this slice. Separate keys/cookies/file sessions are configured through server environment values. Live subpath login/cookie behaviour and the new deployment have not yet been verified.
 
 Mohsin confirmed the server database is disposable and cleared its tables for this transition. Deploy the new main revision first, then the new demo revision; do not rerun an old deployment attempt pinned to earlier commits. Create users through main, then sign in to the demo separately.
+
+## Saved setup and dashboard layout — 8 October 2026
+
+Added per-user price settings, authenticated/CSRF-protected saving and a responsive modal/sidebar layout. Local MySQL migrations and Pint passed. Full fixture suite passed: 14 tests and 63 assertions, covering saved-price persistence/update/user scoping, invalid input, subscription lock and invoice verification using a saved price alongside previous authentication and billing tests. Stripe price existence/mode is not verified by the save form; no external Stripe Checkout was executed. Hosted Checkout remains restricted to local environments pending the user's separate preference.

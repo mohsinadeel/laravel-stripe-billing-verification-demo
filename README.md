@@ -77,3 +77,8 @@ For local shared operation, the demo's ignored `.env` connects to the main Sail 
 Create an account through main, then sign in separately to the demo. This initial demo login rejects accounts with two-factor enabled until a corresponding challenge is implemented. Signing out of the demo does not invalidate main's session; changing the shared password affects credentials in both apps. Hosted Checkout remains disabled by the existing local-only guard.
 
 CI is manual-only via workflow_dispatch using Sail/MySQL. Relevant local checks must pass before code changes are pushed. It creates a minimal shared-user fixture only in database `testing`, migrates the demo's prefixed tables, and uses database transactions for test cleanup. It does not call Stripe APIs or claim a new Stripe integration result.
+## Saved Stripe price setup
+
+Signed-in users can open Add Stripe setup and save a recurring Stripe test price ID. Values persist in the prefixed demo_settings table (stripe_demo_settings with the current prefix), scoped to the user. Checkout and invoice verification use the saved price, falling back to STRIPE_PRICE_ID when no saved value exists. A price cannot be changed once the user's default subscription exists. The form validates the ID format; it does not verify the price against Stripe when saving. API keys and webhook signing secrets remain in the server environment. The existing local-only Checkout restriction remains in force pending a separate hosted-testing decision.
+
+The How to test sidebar sits beside the billing report on wide screens and moves below it on smaller screens. Setup validation errors reopen the modal; successful saves return a confirmation message.
