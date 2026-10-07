@@ -2,6 +2,11 @@ name: Deploy Stripe billing demo
 
 on:
   workflow_dispatch:
+    inputs:
+      configure_stripe_webhook:
+        description: Configure the hosted sandbox destination and store its secret privately
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -99,6 +104,7 @@ jobs:
           SSH_PORT: ${{ secrets.SSH_PORT }}
           SSH_USERNAME: ${{ secrets.SSH_USERNAME }}
           DEPLOY_PATH: ${{ vars.DEPLOY_PATH }}
+          CONFIGURE_STRIPE_WEBHOOK: ${{ inputs.configure_stripe_webhook }}
         run: |
           set -euo pipefail
           PORT="$SSH_PORT"
@@ -107,7 +113,7 @@ jobs:
             -o IdentitiesOnly=yes -o BatchMode=yes
             -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null)
 
-          ssh "${SSH_OPTS[@]}" "$SSH_USERNAME@$SSH_HOST" bash -s <<'REMOTE'
+          ssh "${SSH_OPTS[@]}" "$SSH_USERNAME@$SSH_HOST" bash -s -- "$CONFIGURE_STRIPE_WEBHOOK" <<'REMOTE'
           set -euo pipefail
           DEPLOY_PATH="/home6/inceptio/demo.mohsinadeel.dev/laravel-stripe-billing-verification-demo"
           cd "$DEPLOY_PATH"
@@ -136,6 +142,9 @@ jobs:
           trap '"$PHP" artisan up >/dev/null 2>&1 || true' EXIT
           "$PHP" artisan migrate --force
           "$PHP" artisan db:seed --force
+          if [ "${1:-false}" = "true" ]; then
+            "$PHP" artisan stripe:configure-webhook --no-interaction
+          fi
           "$PHP" artisan storage:link || true
           # Cached route matching fails for the hosted subdirectory root.
           "$PHP" artisan route:clear
