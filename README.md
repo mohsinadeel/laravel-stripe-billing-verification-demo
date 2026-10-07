@@ -76,4 +76,4 @@ For local shared operation, the demo's ignored `.env` connects to the main Sail 
 
 Create an account through main, then sign in separately to the demo. This initial demo login rejects accounts with two-factor enabled until a corresponding challenge is implemented. Signing out of the demo does not invalidate main's session; changing the shared password affects credentials in both apps. Hosted Checkout remains disabled by the existing local-only guard.
 
-CI runs on pushes and pull requests using Sail/MySQL. It creates a minimal shared-user fixture only in database `testing`, migrates the demo's prefixed tables, and uses database transactions for test cleanup. It does not call Stripe APIs or claim a new Stripe integration result.
+CI is manual-only via workflow_dispatch using Sail/MySQL. Relevant local checks must pass before code changes are pushed. It creates a minimal shared-user fixture only in database `testing`, migrates the demo's prefixed tables, and uses database transactions for test cleanup. It does not call Stripe APIs or claim a new Stripe integration result.
