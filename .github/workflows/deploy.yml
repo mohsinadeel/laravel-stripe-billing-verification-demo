@@ -137,7 +137,11 @@ jobs:
           "$PHP" artisan migrate --force
           "$PHP" artisan db:seed --force
           "$PHP" artisan storage:link || true
-          "$PHP" artisan optimize
+          # Cached route matching fails for the hosted subdirectory root.
+          "$PHP" artisan route:clear
+          "$PHP" artisan config:cache
+          "$PHP" artisan event:cache
+          "$PHP" artisan view:cache
           "$PHP" artisan up
           trap - EXIT
           DEMO_PUBLIC="/home6/inceptio/demo.mohsinadeel.dev/laravel-stripe-billing-verification-demo/public"
