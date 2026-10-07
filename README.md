@@ -22,7 +22,7 @@ The invoice listener records positive test-mode payments. The controller retains
 - Laravel framework 13.34.0; PHP target 8.4; Cashier 16.8.0; Stripe PHP SDK 21.3.2. Exact dependency versions are in `composer.lock`.
 - Local runtime: Laravel Sail 1.68.0, PHP 8.4 and MySQL 8.4. The historical S01 run used the previous SQLite runtime; it has not been repeated on MySQL.
 - Official guidance checked 5 October 2026: [Laravel 13 release notes](https://laravel.com/docs/13.x/releases), [Cashier billing](https://laravel.com/docs/13.x/billing), [Stripe invoice object](https://docs.stripe.com/api/invoices/object), [Stripe invoice line object](https://docs.stripe.com/api/invoice-line-item/object), and [Stripe test clocks](https://docs.stripe.com/api/test_clocks).
-- Cashier 16 uses Stripe API version `2025-06-30.basil` per its documentation. S01 verified one actual test-mode invoice line: one monthly plan line with quantity 1 and a service period that matches the app record to the date; the stored expiry includes the exact timestamp. See `evidence/SCENARIOS.md`; this single run does not verify other invoice shapes or subscription lifecycle scenarios.
+- The installed Cashier 16.8.0 / Stripe SDK 21.3.2 resolves its runtime API version to `2026-08-26.dahlia`; the hosted snapshot endpoint uses that version. S01 verified one actual test-mode invoice line: one monthly plan line with quantity 1 and a service period that matches the app record to the date; the stored expiry includes the exact timestamp. See `evidence/SCENARIOS.md`; this single run does not verify other invoice shapes or subscription lifecycle scenarios.
 
 ## Local setup
 
