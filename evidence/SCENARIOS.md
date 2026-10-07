@@ -38,3 +38,28 @@ Date/time: 5 October 2026 (Asia/Karachi). Code commit: `09d3f8264974d5549f1bddef
 1. `docker compose build --quiet`. Starting condition: Laravel/Cashier source and Dockerfile in the local checkout. Expected: image with PHP 8.4, SQLite PDO, bcmath and locked dependencies. Observed: image built successfully. Limit: image build does not prove Stripe integration.
 2. `docker compose run --rm --no-deps -e APP_ENV=testing -e DB_DATABASE=:memory: app php artisan test --no-ansi --do-not-cache-result --display-warnings`. Starting condition: in-memory SQLite, synthetic `cus_fixture_1`, local signed invoice fixture, no paid period. Expected: valid paid invoice permits access until expiry, repeated delivery leaves one paid period, invalid signature is rejected. Observed: 2 tests passed, 8 assertions, no warnings. Limit: signatures and invoice payload are locally generated fixtures; no Stripe delivery or concurrent replay.
 3. `docker compose up -d --force-recreate`, then GET `/` and GET `/protected`. Starting condition: migrated and seeded local Docker volume, no paid invoice or Stripe configuration. Expected: state page loads and protected feature is denied. Observed: HTTP 200 and HTTP 403 respectively; page names the synthetic subscriber. Limit: no Checkout or actual payment executed.
+
+## Sail/MySQL conversion — 7 October 2026
+
+Starting revision: `49f97afb1b0fa24c83ced64ce795751cdb367939`; conversion is an uncommitted working-tree change, with no push or deployment.
+
+Starting conditions: previous SQLite stack stopped; its volume preserved. New isolated Compose project `stripe-billing-demo`, PHP 8.4 Sail image, MySQL 8.4 volume, app database `billing_demo` and test database `testing`. No historical billing rows imported.
+
+Actions and observed results:
+- `composer require laravel/sail --dev --no-interaction --no-progress`: Sail 1.68.0 installed; existing framework/Cashier dependencies unchanged. `composer validate --no-check-publish` passed.
+- `docker compose up -d --build --wait`: Sail image built; app started and MySQL healthy.
+- `docker compose exec -T laravel.test php artisan migrate --seed --no-interaction`: all migrations completed and synthetic subscriber seeded.
+- `docker compose exec -T laravel.test php artisan test --no-ansi --do-not-cache-result`: MySQL fixture checks passed, 2 tests and 8 assertions, including paid access, expiry, sequential duplicate and invalid signature.
+- HTTP GET `http://localhost:8081/`: 200; GET `/protected`: 403 for the fresh unpaid app database.
+- Stopped demo stack: main at port 8080 still returned 200. Restarted demo and stopped main stack: demo at port 8081 still returned 200. Both stacks restored afterwards.
+- `vendor/bin/pint --dirty`: passed for modified PHP configuration. `git diff --check`: passed.
+
+Limits: This verifies the local Sail/MySQL runtime and fixtures only. The historical S01 Stripe payment remains evidence for the old SQLite environment; no real Checkout or signed Stripe delivery has been rerun after conversion. S02–S10 remain Not run. Apache subpath routing, public access controls and production hosting remain unverified.
+
+## Deployment preparation — 7 October 2026
+
+Uncommitted changes based on HEAD 49f97afb1b0fa24c83ced64ce795751cdb367939. Both independent manual deployment workflows parsed as YAML; all 13 shell blocks passed bash -n. Extracted symlink logic executed in an ephemeral container: missing target deferred, creation and repeat passed, wrong target and directory collision rejected. Demo diff check passed. These checks validate deployment script syntax and filesystem logic only; Apache routing, PHP execution through the server symlink and public URLs remain Not run. No workflow dispatch or deployment occurred. Historical Stripe S01 has not been repeated on MySQL.
+
+## Commit references — 7 October 2026
+
+The Sail/MySQL conversion is now committed locally as `69339fd`; deployment preparation is committed as `a2c6e9d`. The verification records above describe checks performed before these commits against the same implementation. Creating commits did not rerun or extend the verified scenarios. No push or deployment has occurred; real Stripe S01 on MySQL and Apache routing remain unverified.
