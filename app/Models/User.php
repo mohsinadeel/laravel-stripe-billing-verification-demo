@@ -20,11 +20,13 @@ class User extends Authenticatable
     /** @use HasFactory<UserFactory> */
     use Billable, HasFactory, Notifiable;
 
-    /**
-     * Get the attributes that should be cast.
-     *
-     * @return array<string, string>
-     */
+    public function stripeDemoPriceId(): ?string
+    {
+        return DemoSetting::query()->where('user_id', $this->id)->value('stripe_price_id')
+            ?? config('services.stripe.demo_price_id');
+    }
+
+    /** @return array<string, string> */
     protected function casts(): array
     {
         return [

@@ -18,3 +18,5 @@ Route::post('/stripe/webhook', [WebhookController::class, 'handleWebhook'])
 Route::get('/login', [AuthController::class, 'create'])->middleware('guest')->name('login');
 Route::post('/login', [AuthController::class, 'store'])->middleware(['guest', 'throttle:6,1'])->name('login.store');
 Route::post('/logout', [AuthController::class, 'destroy'])->middleware('auth')->name('logout');
+
+Route::post('/settings/stripe', [DemoController::class, 'saveSettings'])->middleware('auth')->name('demo.settings.stripe');

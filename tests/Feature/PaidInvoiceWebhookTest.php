@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\DemoSetting;
 use App\Models\User;
 use Illuminate\Testing\TestResponse;
 use Tests\TestCase;
@@ -71,5 +72,17 @@ class PaidInvoiceWebhookTest extends TestCase
             ->assertForbidden();
 
         $this->assertDatabaseCount('paid_periods', 0);
+    }
+
+    public function test_saved_user_price_is_used_for_invoice_verification(): void
+    {
+        config()->set('cashier.webhook.secret', 'whsec_fixture_secret');
+        config()->set('services.stripe.demo_price_id', 'price_Unrelated');
+        $user = User::factory()->create(['stripe_id' => 'cus_fixture_1']);
+        DemoSetting::create(['user_id' => $user->id, 'stripe_price_id' => 'price_fixture_1']);
+
+        $this->signedPost($this->invoicePayload(now()->addHour()->timestamp))->assertOk();
+        $this->actingAs($user)->get('/protected')->assertOk();
+        $this->assertDatabaseHas('paid_periods', ['user_id' => $user->id, 'stripe_invoice_id' => 'in_fixture_1']);
     }
 }

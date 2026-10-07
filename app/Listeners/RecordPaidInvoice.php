@@ -38,7 +38,7 @@ class RecordPaidInvoice
 
         $invoiceId = $invoice['id'] ?? null;
         $eventId = $payload['id'] ?? null;
-        $priceId = config('services.stripe.demo_price_id');
+        $priceId = $user->stripeDemoPriceId();
 
         if (! is_string($invoiceId) || ! is_string($eventId) || ! is_string($priceId) || $priceId === '') {
             throw new UnexpectedValueException('Invoice or configured plan is incomplete.');
