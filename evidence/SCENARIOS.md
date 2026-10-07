@@ -2,20 +2,20 @@
 
 Date: 5 October 2026 (Asia/Karachi). Code commit: `09d3f8264974d5549f1bddefeaa4f789be544acb` (local only).
 
-| ID | Status | Evidence type | Current observation and limit |
-| --- | --- | --- | --- |
-| S01 successful initial payment | Verified against Stripe test environment | Stripe sandbox, Stripe CLI local forwarding, Laravel/Cashier app | Actual $10.00 test Checkout was paid; `invoice.payment_succeeded` reached the app with HTTP 200; invoice line period and local paid period agree to the date, and the home state reports access allowed through the stored expiry. Details and limits below. |
-| S02 incomplete checkout | Not run | Stripe test environment | No actual incomplete Checkout run. |
-| S03 successful renewal | Not run | Stripe test environment | No test-clock renewal run. |
-| S04 failed renewal | Not run | Stripe test environment | No failure or expiry boundary run. |
-| S05 period-end cancellation | Not run | Stripe test environment | No cancellation lifecycle run. |
-| S06 repeated and concurrent delivery | Not run | Stripe test environment and automated concurrency | Sequential duplicate fixture passed; concurrent delivery and signed Stripe replay remain unrun. |
-| S07 invalid signature | Not run | Stripe test environment | Local invalid-signature fixture passed; actual delivery/replay remains unrun. |
-| S08 processing failure and retry | Not run | Simulated fault | Not implemented. |
-| S09 mismatch and correction | Not run | Simulated drift | Not implemented. |
-| S10 stale or related event order | Not run | Local fixture and integration | Not implemented. |
+| ID | Current status | Evidence and remaining limit |
+| --- | --- | --- |
+| S01 successful initial payment | Historical sandbox verified; hosted shared-MySQL run Not run | Old SQLite result retained below. Current hosted Checkout is filled but final Subscribe requires human handoff. |
+| S02 incomplete checkout | Verified against Stripe sandbox: cancellation variant | Real hosted cancellation retained no subscription/paid period, protected route showed 403, another Checkout started. Decline/incomplete-subscription variant Not run. |
+| S03 successful renewal | Locally verified policy with fixtures | Paid renewal extends expiry; exact expiry denied. Actual test-clock renewal Not run. |
+| S04 failed renewal | Locally verified policy with fixtures | Signed failure observation leaves paid expiry unchanged; access stops at expiry. Actual Stripe failed renewal Not run. |
+| S05 period-end cancellation | Locally verified policy with fixtures | Current cancellation end synced, paid access preserved before expiry and denied at expiry. Actual Stripe lifecycle Not run. |
+| S06 repeated/concurrent delivery | Locally verified | Two PHP processes, unique receipt/invoice effect, HTTP 200. Actual signed Stripe resend Not run. |
+| S07 invalid signature | Locally verified; hosted negative request checked | Local before/after zero subscriptions/periods/receipts; hosted invalid-signature POST 403. No hosted DB before/after query. |
+| S08 processing failure/retry | Locally verified simulated fault | Failed receipt retained, invoice transaction rolled back, retry completes once; production ignores injection. Stripe automatic retry Not run. |
+| S09 mismatch/repair | Locally verified simulated drift | Read-only diagnosis unchanged row, explicit disposable-MySQL repair, stable repeat. Live Stripe comparison Not run. |
+| S10 older/related event order | Locally verified with mocked latest Stripe state | Active/cancelled subscription does not regress; older paid invoice cannot reduce expiry. Actual Stripe delivery order Not run. |
 
-S01 is verified against one Stripe test-environment payment. S02–S10 remain Not run. Keep each future run tied to its starting state, exact action, expected and observed result, date/time, commit, environment, evidence and remaining limits.
+Current snapshot: 8 October 2026 (Asia/Karachi). Final local suite: 31 tests / 179 assertions. Historical entries below describe their original runtime/commit and do not establish hosted S01. Every local test uses Sail/MySQL testing, not SQLite. Signed fixture payloads and mocked SDK calls are not Stripe integration evidence.
 
 ## S01 successful initial payment
 
@@ -97,3 +97,13 @@ Hosted S02 cancellation at ae1b322: user-authorised account initially had no obs
 ## S09 local mismatch and correction — 8 October 2026
 
 Base 164c5987379dd9ab3ea099490ba43978c5c06f2c. Implemented stripe:reconcile USER_ID, read-only by default, comparing authoritative mocked Stripe paid invoices/subscription ownership with prefixed paid periods. Shared PaidInvoicePeriod validator also drives webhook storage. Starting fixture: testing MySQL only, synthetic customer, invoice in_reconcile, stored expiry 2026-10-08 11:00:00 UTC versus expected 10:00:00. Command reports one mismatch and failing exit code; fresh before/after database row including timestamps is identical. Explicit --repair reports one correction; repeat reports zero, one invoice row remains, and no event receipt is fabricated. Production repair is refused. Initial comparison assertion was sensitive to array key order; fresh snapshots fixed it before passing. Affected command `php artisan test --compact --filter='ReconcileStripeBillingTest|PaidInvoiceWebhookTest|ConcurrentWebhookTest' --no-ansi --do-not-cache-result`: 8 tests / 52 assertions passed under Sail/MySQL. Pint passed. Stripe SDK is mocked; no actual Stripe-backed diagnosis/repair or hosted drift executed.
+
+## S03/S05/S10 policy and ordering checks — 8 October 2026
+
+Base 0d7a5e6b8b1aaa0873b9f889fef5e0276ff15f99. Subscription created/updated/deleted syncing retrieves authoritative current Stripe subscription under the MySQL lock, verifies test mode/customer and invokes Cashier. Starting synthetic active subscription: older past_due update and stale deleted event leave active state/items intact because mocked latest Stripe state remains active. Scheduled period-end cancellation syncs ends_at; a stored paid period still allows protected access before expiry and denies at the exact application-time expiry. Latest cancelled Stripe state followed by an old active event stays cancelled. Stripe lookup failure returns 500, preserves active local state and records failed processing for retry. Separate signed paid-invoice fixtures show renewal extending expiry; a different older-related event referring to the original invoice creates no duplicate effect and cannot reduce the maximum paid expiry.
+
+Final command `docker compose exec -T laravel.test php artisan test --compact --no-ansi --do-not-cache-result`: 31 tests / 179 assertions passed. Pint/diff checks passed. No Stripe test clock used. Controlled Laravel test time drives expiry assertions; Stripe clock and server time were not conflated. Subscription SDK responses and invoice signatures are fixtures.
+
+Concurrency harness correction: the earlier lock/readiness approach intermittently missed buffered READY output and held the test-owned lock until workers returned 503. Replaced it with persistent stdin streams: both workers boot on testing MySQL and report READY, then both receive GO before posting. Combined suite passes with two HTTP 200 responses, one receipt/attempt and one invoice effect. This is two-process local concurrency, not Stripe transport replay.
+
+Hosted provisioning confirmed in Dashboard: destination we_1UO3EPKBr84CUJwolnuzf7JZ active at the exact webhook URL; API 2026-08-26.dahlia. Dashboard lists nine configured event names plus legacy payment_method.card_automatically_updated (10 shown). Signing secret remains hidden. No real event delivery yet. Independent HTTP smoke: GET webhook 405; invalid-signature POST 403. Secret storage/setup deployment 37695681779 succeeded; durable processing 37696599706 and reconciliation 37697046178 succeeded.

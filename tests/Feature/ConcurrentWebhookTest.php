@@ -5,7 +5,7 @@ namespace Tests\Feature;
 use App\Models\PaidPeriod;
 use App\Models\StripeEventReceipt;
 use App\Models\User;
-use Illuminate\Support\Facades\DB;
+use Symfony\Component\Process\InputStream;
 use Symfony\Component\Process\Process;
 use Tests\TestCase;
 
@@ -24,21 +24,26 @@ class ConcurrentWebhookTest extends TestCase
             'parent' => ['subscription_details' => ['subscription' => 'sub_concurrent']],
             'lines' => ['data' => [['pricing' => ['price_details' => ['price' => 'price_concurrent']], 'period' => ['start' => 1791450000, 'end' => 1791453600]]]],
         ]]];
-        $lock = substr('stripe-demo:'.hash('sha256', (string) $user->id), 0, 64);
         $workers = [];
-        DB::select('SELECT GET_LOCK(?, 5)', [$lock]);
+        $inputs = [];
         try {
             foreach ([1, 2] as $worker) {
+                $input = new InputStream;
+                $input->write(json_encode($payload, JSON_THROW_ON_ERROR)."\n");
                 $process = new Process([PHP_BINARY, base_path('tests/Fixtures/webhook-worker.php')], base_path(), [
                     'APP_ENV' => 'testing', 'DB_DATABASE' => 'testing', 'DB_CONNECTION' => 'mysql', 'DB_TABLE_PREFIX' => 'stripe_',
-                ], json_encode($payload, JSON_THROW_ON_ERROR), 20);
+                ], $input, 20);
                 $process->start();
                 $workers[] = $process;
+                $inputs[] = $input;
             }
             foreach ($workers as $process) {
-                $this->assertTrue($process->waitUntil(fn (string $type, string $output): bool => str_contains($output, 'READY')), $process->getErrorOutput().$process->getOutput());
+                $this->assertTrue(str_contains($process->getOutput(), 'READY') || $process->waitUntil(fn (): bool => str_contains($process->getOutput(), 'READY')), $process->getErrorOutput().$process->getOutput());
             }
-            DB::select('SELECT RELEASE_LOCK(?)', [$lock]);
+            foreach ($inputs as $input) {
+                $input->write("GO\n");
+                $input->close();
+            }
             foreach ($workers as $process) {
                 $process->wait();
                 $this->assertSame(0, $process->getExitCode(), $process->getErrorOutput());
@@ -48,7 +53,6 @@ class ConcurrentWebhookTest extends TestCase
             $this->assertSame(1, StripeEventReceipt::where('stripe_event_id', $eventId)->count());
             $this->assertDatabaseHas('stripe_event_receipts', ['stripe_event_id' => $eventId, 'status' => 'completed', 'attempts' => 1]);
         } finally {
-            DB::select('SELECT RELEASE_LOCK(?)', [$lock]);
             foreach ($workers as $process) {
                 if ($process->isRunning()) {
                     $process->stop();

@@ -74,4 +74,32 @@ class StripeWebhookController extends WebhookController
     {
         return new Response('Failed payment observed; paid entitlement unchanged', 200);
     }
+
+    protected function handleCustomerSubscriptionCreated(array $payload): Response
+    {
+        return $this->syncCurrentSubscription($payload);
+    }
+
+    protected function handleCustomerSubscriptionUpdated(array $payload): Response
+    {
+        return $this->syncCurrentSubscription($payload);
+    }
+
+    protected function handleCustomerSubscriptionDeleted(array $payload): Response
+    {
+        return $this->syncCurrentSubscription($payload);
+    }
+
+    private function syncCurrentSubscription(array $payload): Response
+    {
+        $snapshot = $payload['data']['object'];
+        $current = Cashier::stripe()->subscriptions->retrieve($snapshot['id'])->toArray();
+        if (($current['livemode'] ?? null) !== false || ($current['customer'] ?? null) !== ($snapshot['customer'] ?? null)) {
+            throw new \UnexpectedValueException('Current subscription ownership or mode mismatch.');
+        }
+        $payload['data']['object'] = $current;
+        parent::handleCustomerSubscriptionCreated($payload);
+
+        return parent::handleCustomerSubscriptionUpdated($payload) ?? new Response('Subscription reconciled', 200);
+    }
 }

@@ -13,11 +13,14 @@ if (! $app->environment('testing') || config('database.connections.mysql.databas
 }
 config()->set('cashier.webhook.secret', 'whsec_fixture_secret');
 config()->set('services.stripe.demo_price_id', 'price_concurrent');
-$body = stream_get_contents(STDIN);
+$body = trim(fgets(STDIN));
 $timestamp = time();
 $signature = hash_hmac('sha256', $timestamp.'.'.$body, 'whsec_fixture_secret');
 echo "READY\n";
 flush();
+if (trim(fgets(STDIN)) !== 'GO') {
+    exit(3);
+}
 $request = Request::create('/stripe/webhook', 'POST', [], [], [], [
     'CONTENT_TYPE' => 'application/json', 'HTTP_STRIPE_SIGNATURE' => "t={$timestamp},v1={$signature}",
 ], $body);

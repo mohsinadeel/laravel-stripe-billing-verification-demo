@@ -139,4 +139,29 @@ class PaidInvoiceWebhookTest extends TestCase
         $this->signedPost($this->invoicePayload(now()->addHour()->timestamp))->assertOk();
         $this->assertDatabaseCount('paid_periods', 1);
     }
+
+    public function test_renewal_and_older_invoice_delivery_preserve_the_latest_paid_expiry(): void
+    {
+        $this->freezeTime();
+        config()->set('cashier.webhook.secret', 'whsec_fixture_secret');
+        config()->set('services.stripe.demo_price_id', 'price_fixture_1');
+        $user = User::factory()->create(['stripe_id' => 'cus_fixture_1']);
+        $firstEnd = now()->addHour();
+        $renewalEnd = now()->addHours(2);
+        $this->signedPost($this->invoicePayload($firstEnd->timestamp))->assertOk();
+        $renewal = $this->invoicePayload($renewalEnd->timestamp);
+        $renewal['id'] = 'evt_renewal';
+        $renewal['data']['object']['id'] = 'in_renewal';
+        $this->signedPost($renewal)->assertOk();
+        $older = $this->invoicePayload($firstEnd->timestamp);
+        $older['id'] = 'evt_older_related';
+        $this->signedPost($older)->assertOk();
+        $this->assertDatabaseCount('paid_periods', 2);
+        $this->assertDatabaseCount('stripe_event_receipts', 3);
+        $this->actingAs($user)->get('/')->assertSee($renewalEnd->toDateTimeString());
+        $this->travelTo($firstEnd);
+        $this->get('/protected')->assertOk();
+        $this->travelTo($renewalEnd);
+        $this->get('/protected')->assertForbidden();
+    }
 }
