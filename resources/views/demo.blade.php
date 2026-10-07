@@ -70,6 +70,10 @@
             <dt>Paid entitlement ends</dt><dd>{{ $paidUntil ?? 'No paid period recorded' }} UTC</dd>
             <dt>Protected access</dt><dd class="{{ $hasAccess ? 'yes' : 'no' }}">{{ $hasAccess ? 'Allowed: paid period remains current' : 'Denied: no current paid period' }}</dd>
             <dt>Latest webhook receipt</dt><dd>{{ $latestReceipt ? $latestReceipt->event_type.' / '.$latestReceipt->status : 'None observed' }}</dd>
+            @if ($latestReceipt)
+                <dt>Processing attempts</dt><dd>{{ $latestReceipt->attempts }}</dd>
+                @if ($latestReceipt->last_error)<dt>Processing error</dt><dd>{{ $latestReceipt->last_error }}</dd>@endif
+            @endif
         </dl>
     </section>
 

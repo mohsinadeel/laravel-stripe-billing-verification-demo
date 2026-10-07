@@ -55,6 +55,8 @@ class PaidInvoiceWebhookTest extends TestCase
         $this->signedPost($this->invoicePayload($end))->assertOk();
         $this->signedPost($this->invoicePayload($end))->assertOk();
         $this->assertDatabaseCount('paid_periods', 1);
+        $this->assertDatabaseCount('stripe_event_receipts', 1);
+        $this->assertDatabaseHas('stripe_event_receipts', ['stripe_event_id' => 'evt_fixture_1', 'status' => 'completed', 'attempts' => 1]);
         $this->get('/protected')->assertOk();
 
         $this->travelTo(now()->addHours(2));
@@ -72,6 +74,8 @@ class PaidInvoiceWebhookTest extends TestCase
             ->assertForbidden();
 
         $this->assertDatabaseCount('paid_periods', 0);
+        $this->assertDatabaseCount('stripe_event_receipts', 0);
+        $this->assertDatabaseCount('subscriptions', 0);
     }
 
     public function test_saved_user_price_is_used_for_invoice_verification(): void
@@ -84,5 +88,55 @@ class PaidInvoiceWebhookTest extends TestCase
         $this->signedPost($this->invoicePayload(now()->addHour()->timestamp))->assertOk();
         $this->actingAs($user)->get('/protected')->assertOk();
         $this->assertDatabaseHas('paid_periods', ['user_id' => $user->id, 'stripe_invoice_id' => 'in_fixture_1']);
+    }
+
+    public function test_failed_processing_is_durable_and_signed_retry_completes_once(): void
+    {
+        config()->set('cashier.webhook.secret', 'whsec_fixture_secret');
+        config()->set('services.stripe.demo_price_id', 'price_fixture_1');
+        config()->set('services.stripe.fail_after_processing', true);
+        User::factory()->create(['stripe_id' => 'cus_fixture_1']);
+        $payload = $this->invoicePayload(now()->addHour()->timestamp);
+        $this->signedPost($payload)->assertStatus(500);
+        $this->assertDatabaseCount('paid_periods', 0);
+        $this->assertDatabaseHas('stripe_event_receipts', ['stripe_event_id' => 'evt_fixture_1', 'status' => 'failed', 'attempts' => 1, 'processed_at' => null]);
+        config()->set('services.stripe.fail_after_processing', false);
+        $this->signedPost($payload)->assertOk();
+        $this->signedPost($payload)->assertOk();
+        $this->assertDatabaseCount('paid_periods', 1);
+        $this->assertDatabaseCount('stripe_event_receipts', 1);
+        $this->assertDatabaseHas('stripe_event_receipts', ['status' => 'completed', 'attempts' => 2, 'last_error' => null]);
+    }
+
+    public function test_failed_renewal_keeps_existing_paid_access_until_exact_expiry(): void
+    {
+        $this->freezeTime();
+        config()->set('cashier.webhook.secret', 'whsec_fixture_secret');
+        config()->set('services.stripe.demo_price_id', 'price_fixture_1');
+        $user = User::factory()->create(['stripe_id' => 'cus_fixture_1']);
+        $end = now()->addHour();
+        $this->signedPost($this->invoicePayload($end->timestamp))->assertOk();
+        $failed = $this->invoicePayload($end->addMonth()->timestamp);
+        $failed['id'] = 'evt_failed';
+        $failed['type'] = 'invoice.payment_failed';
+        $failed['data']['object']['status'] = 'open';
+        $failed['data']['object']['amount_paid'] = 0;
+        $this->signedPost($failed)->assertOk();
+        $this->assertDatabaseCount('paid_periods', 1);
+        $this->assertDatabaseHas('stripe_event_receipts', ['stripe_event_id' => 'evt_failed', 'status' => 'completed']);
+        $this->actingAs($user)->get('/protected')->assertOk();
+        $this->travelTo($end->subMonth());
+        $this->get('/protected')->assertForbidden();
+    }
+
+    public function test_production_ignores_local_failure_injection(): void
+    {
+        config()->set('cashier.webhook.secret', 'whsec_fixture_secret');
+        config()->set('services.stripe.demo_price_id', 'price_fixture_1');
+        config()->set('services.stripe.fail_after_processing', true);
+        User::factory()->create(['stripe_id' => 'cus_fixture_1']);
+        $this->app->detectEnvironment(fn (): string => 'production');
+        $this->signedPost($this->invoicePayload(now()->addHour()->timestamp))->assertOk();
+        $this->assertDatabaseCount('paid_periods', 1);
     }
 }

@@ -2,16 +2,16 @@
 
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DemoController;
+use App\Http\Controllers\StripeWebhookController;
 use App\Http\Middleware\RequireStripeWebhookSecret;
 use Illuminate\Support\Facades\Route;
-use Laravel\Cashier\Http\Controllers\WebhookController;
 use Laravel\Cashier\Http\Middleware\VerifyWebhookSignature;
 
 Route::get('/', [DemoController::class, 'index'])->middleware('auth')->name('demo.index');
 Route::post('/checkout', [DemoController::class, 'checkout'])->middleware('auth')->name('demo.checkout');
 Route::get('/protected', [DemoController::class, 'protected'])->middleware('auth')->name('demo.protected');
 
-Route::post('/stripe/webhook', [WebhookController::class, 'handleWebhook'])
+Route::post('/stripe/webhook', [StripeWebhookController::class, 'handleWebhook'])
     ->middleware([RequireStripeWebhookSecret::class, VerifyWebhookSignature::class])
     ->name('cashier.webhook');
 

@@ -12,6 +12,8 @@ use Stripe\HttpClient\CurlClient;
 
 abstract class TestCase extends BaseTestCase
 {
+    protected bool $useTransactions = true;
+
     protected function fakeStripe(array $responses): void
     {
         $client = \Mockery::mock(ClientInterface::class);
@@ -64,6 +66,10 @@ abstract class TestCase extends BaseTestCase
             }
             $this->artisan('migrate', ['--force' => true])->assertSuccessful();
             self::$schemaPrepared = true;
+        }
+
+        if (! $this->useTransactions) {
+            return;
         }
 
         foreach (['mysql', 'shared_users'] as $connection) {
