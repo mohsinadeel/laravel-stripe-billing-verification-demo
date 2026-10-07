@@ -47,6 +47,7 @@
 
     <div class="layout"><div class="content">
     @if (session('status'))<div class="card success" role="status">{{ session('status') }}</div>@endif
+    @if ($errors->getBag('default')->has('stripe_price_id'))<div class="card notice" role="alert">{{ $errors->getBag('default')->first('stripe_price_id') }}</div>@endif
     @if (request('checkout') === 'returned')
         @if ($hasAccess && $latestPeriod?->stripe_invoice_id)
             <div class="card success" role="status">Payment confirmed. A paid invoice has been processed, and protected access is active until {{ $paidUntil }} UTC.</div>
@@ -77,7 +78,7 @@
         <p class="muted">Stripe test price: <code>{{ $planConfigured ? $priceId : 'Not configured' }}</code></p>
         <div class="toolbar">
             <button type="button" class="secondary" id="open-stripe-setup" @disabled($subscription)>{{ $planConfigured ? 'Edit Stripe setup' : 'Add Stripe setup' }}</button>
-            @if ($planConfigured && ! $subscription && $checkoutLocal)
+            @if ($planConfigured && ! $subscription && $checkoutConfigured)
                 <form method="post" action="{{ route('demo.checkout') }}">@csrf<button type="submit">Start test checkout</button></form>
             @endif
         </div>
@@ -86,8 +87,8 @@
         @elseif (! $planConfigured)
             <p class="muted">Add your Stripe test price ID to configure checkout.</p>
         @endif
-        @if (! $checkoutLocal)
-            <p class="notice">Checkout is currently restricted to the local demo. Your saved price is retained for future use.</p>
+        @if (! $checkoutConfigured)
+            <p class="notice">The administrator must configure test keys and the endpoint signing secret before Checkout is available.</p>
         @endif
         <p><a href="{{ route('demo.protected') }}">Check protected feature</a></p>
     </section>

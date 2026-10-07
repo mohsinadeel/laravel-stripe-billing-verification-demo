@@ -19,6 +19,10 @@ class DemoSettingsTest extends TestCase
     {
         $owner = User::factory()->create();
         $other = User::factory()->create();
+        $this->fakeStripe([
+            'GET /v1/prices/price_TestA' => ['id' => 'price_TestA', 'object' => 'price', 'livemode' => false, 'active' => true, 'type' => 'recurring', 'recurring' => ['interval' => 'month']],
+            'GET /v1/prices/price_TestB' => ['id' => 'price_TestB', 'object' => 'price', 'livemode' => false, 'active' => true, 'type' => 'recurring', 'recurring' => ['interval' => 'month']],
+        ]);
         $this->actingAs($owner)->post('/settings/stripe', ['stripe_price_id' => 'price_TestA', 'user_id' => $other->id])
             ->assertRedirect(route('demo.index'));
         $this->assertSame('price_TestA', $owner->stripeDemoPriceId());

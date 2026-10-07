@@ -5,11 +5,14 @@ namespace App\Http\Controllers;
 use App\Models\DemoSetting;
 use App\Models\PaidPeriod;
 use App\Models\StripeEventReceipt;
+use App\StripeSandbox;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
+use Laravel\Cashier\Checkout;
+use Stripe\Exception\ApiErrorException;
 
 class DemoController extends Controller
 {
@@ -28,26 +31,27 @@ class DemoController extends Controller
             'latestPeriod' => PaidPeriod::query()->where('user_id', $user->id)->latest('id')->first(),
             'latestReceipt' => StripeEventReceipt::query()->where('user_id', $user->id)->latest('id')->first(),
             'priceId' => $priceId,
-            'checkoutLocal' => app()->environment('local'),
+            'checkoutConfigured' => app(StripeSandbox::class)->configured(),
             'planConfigured' => str_starts_with((string) $priceId, 'price_')
                 && $priceId !== 'price_replace_me',
         ]);
     }
 
-    public function checkout(Request $request)
+    public function checkout(Request $request, StripeSandbox $sandbox): Checkout
     {
         $user = $request->user();
-        abort_unless(app()->environment('local'), 403);
-        abort_unless(str_starts_with((string) config('cashier.secret'), 'sk_test_') && config('cashier.secret') !== 'sk_test_replace_me', 503);
-        abort_unless(str_starts_with((string) $user->stripeDemoPriceId(), 'price_') && $user->stripeDemoPriceId() !== 'price_replace_me', 503);
-
         abort_if($user->subscription('default') !== null, 409, 'This synthetic user already has a subscription.');
-
-        return $user->newSubscription('default', $user->stripeDemoPriceId())
-            ->checkout([
-                'success_url' => route('demo.index').'?checkout=returned',
-                'cancel_url' => route('demo.index').'?checkout=cancelled',
-            ]);
+        $priceId = (string) $user->stripeDemoPriceId();
+        $sandbox->validatePrice($priceId);
+        try {
+            return $user->newSubscription('default', $priceId)
+                ->checkout([
+                    'success_url' => route('demo.index').'?checkout=returned',
+                    'cancel_url' => route('demo.index').'?checkout=cancelled',
+                ]);
+        } catch (ApiErrorException) {
+            throw ValidationException::withMessages(['stripe_price_id' => 'Stripe could not start Checkout. Retry or ask the administrator to check the sandbox configuration.']);
+        }
     }
 
     public function saveSettings(Request $request): RedirectResponse
@@ -61,6 +65,8 @@ class DemoController extends Controller
                 'stripe_price_id' => 'The price cannot be changed after a subscription has been created.',
             ])->errorBag('stripeSetup');
         }
+
+        app(StripeSandbox::class)->validatePrice($values['stripe_price_id'], 'stripeSetup');
 
         DemoSetting::query()->updateOrCreate(['user_id' => $user->id], $values);
 

@@ -60,7 +60,7 @@ Before running it, provide a server-only `.env` inside the demo repository direc
 - `SESSION_COOKIE=stripe_billing_demo_session`, `SESSION_PATH=/laravel-stripe-billing-verification-demo`, `SESSION_SECURE_COOKIE=true`, `SESSION_DOMAIN=null`.
 - Separate Stripe test-mode settings only if needed for an authorised hosted verification. Never configure live payment keys for this working demonstration.
 
-The demo seeder does not create users; create accounts through the main application. Hosted Checkout remains disabled because it is currently restricted to `APP_ENV=local`; do not set production to local to bypass that restriction. The report displays only the signed-in user's billing state.
+The demo seeder does not create users; create accounts through the main application. Hosted Checkout accepts server test keys only; keep APP_ENV=production. Prices are checked against Stripe before saving and before Checkout. The report displays only the signed-in user's billing state.
 
 Live verification is pending: main `/`, demo prefix with and without a trailing slash, demo `/up`, `/protected`, a missing route, POST webhook signature rejection, generated links and session cookie paths. Requests to demo `/.env`, `/composer.json` and `/vendor/autoload.php` must not expose files. A local Sail check does not validate Apache `.htaccess` or symlink handling.
 
@@ -74,11 +74,33 @@ Deploy main first, then demo. With the previously confirmed disposable database 
 
 For local shared operation, the demo's ignored `.env` connects to the main Sail MySQL service through `DB_HOST=host.docker.internal`, `DB_PORT=3307`, and the main app database credentials. Its old MySQL volume is preserved. The main MySQL service must remain running; the main web container need not remain running.
 
-Create an account through main, then sign in separately to the demo. This initial demo login rejects accounts with two-factor enabled until a corresponding challenge is implemented. Signing out of the demo does not invalidate main's session; changing the shared password affects credentials in both apps. Hosted Checkout remains disabled by the existing local-only guard.
+Create an account through main, then sign in separately to the demo. This initial demo login rejects accounts with two-factor enabled until a corresponding challenge is implemented. Signing out of the demo does not invalidate main's session; changing the shared password affects credentials in both apps. Hosted Checkout now uses test-key and Stripe price validation.
 
 CI is manual-only via workflow_dispatch using Sail/MySQL. Relevant local checks must pass before code changes are pushed. It creates a minimal shared-user fixture only in database `testing`, migrates the demo's prefixed tables, and uses database transactions for test cleanup. It does not call Stripe APIs or claim a new Stripe integration result.
 ## Saved Stripe price setup
 
-Signed-in users can open Add Stripe setup and save a recurring Stripe test price ID. Values persist in the prefixed demo_settings table (stripe_demo_settings with the current prefix), scoped to the user. Checkout and invoice verification use the saved price, falling back to STRIPE_PRICE_ID when no saved value exists. A price cannot be changed once the user's default subscription exists. The form validates the ID format; it does not verify the price against Stripe when saving. API keys and webhook signing secrets remain in the server environment. The existing local-only Checkout restriction remains in force pending a separate hosted-testing decision.
+Signed-in users can open Add Stripe setup and save a recurring Stripe test price ID. Values persist in the prefixed demo_settings table (stripe_demo_settings with the current prefix), scoped to the user. Checkout and invoice verification use the saved price, falling back to STRIPE_PRICE_ID when no saved value exists. A price cannot be changed once the user's default subscription exists. The form validates the ID format and retrieves the price with the server test key, requiring an active recurring test price in the same sandbox. API keys and webhook signing secrets remain in the server environment. Hosted test Checkout is authorised and uses the same validation again immediately before creating the session.
 
 The How to test sidebar sits beside the billing report on wide screens and moves below it on smaller screens. Setup validation errors reopen the modal; successful saves return a confirmation message.
+
+## Hosted sandbox Checkout — 8 October 2026
+
+Keep APP_ENV=production and APP_DEBUG=false. Configure STRIPE_KEY (pk_test_), STRIPE_SECRET (sk_test_) and STRIPE_WEBHOOK_SECRET (whsec_) privately on the server. Live keys are refused. A saved or fallback price must be active, recurring and have livemode=false; retrieving it with the server key establishes sandbox ownership. Stripe failures return safe messages rather than raw API exceptions. A subscription record, including an incomplete one, blocks another Checkout: inspect the sandbox subscription before retrying; use a separate synthetic account for S02. Cancellation before subscription creation permits another attempt.
+
+In the same Stripe sandbox as the server keys, open Workbench → Webhooks → Create an event destination. Select Your account, Snapshot payloads and API version **2026-08-26.dahlia**, resolved from installed Cashier 16.8.0 / Stripe SDK 21.3.2. Select:
+
+- customer.subscription.created
+- customer.subscription.updated
+- customer.subscription.deleted
+- customer.updated
+- customer.deleted
+- payment_method.automatically_updated
+- invoice.payment_action_required
+- invoice.payment_succeeded
+- invoice.payment_failed (needed for failed-renewal observation; no entitlement extension)
+
+Choose Webhook endpoint and enter exactly `https://demo.mohsinadeel.dev/laravel-stripe-billing-verification-demo/stripe/webhook` (no trailing slash). Store that destination's signing secret in the hosted STRIPE_WEBHOOK_SECRET. A local Stripe CLI listener has a different secret. Refresh server configuration with `php artisan config:cache` using the server's PHP 8.4 binary; keep routes uncached (`php artisan route:clear`). The deployment workflow already does this. Never paste secrets into chat, commits or evidence.
+
+S01: sign in with a synthetic account with no subscription or paid period, save its sandbox price, start Checkout, use 4242 4242 4242 4242 with future expiry and any three-digit CVC. Check actual endpoint delivery of invoice.payment_succeeded, the stored invoice/period, and GET /protected. A returned Checkout URL alone creates no paid entitlement. S02 uses a different unpaid account; cancel Checkout or use 4000 0000 0000 9995. Inspect any incomplete subscription before another attempt.
+
+Sources checked 8 October 2026: [price retrieval](https://docs.stripe.com/api/prices/retrieve), [webhook registration and signatures](https://docs.stripe.com/webhooks), [test cards](https://docs.stripe.com/testing), [test clocks](https://docs.stripe.com/billing/testing/test-clocks). Test-clock time does not advance Laravel time; controlled local expiry checks must be recorded separately. Local mocked Stripe API tests are regression evidence, not actual sandbox Checkout proof.

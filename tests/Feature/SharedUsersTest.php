@@ -37,14 +37,15 @@ class SharedUsersTest extends TestCase
         $this->assertGuest();
     }
 
-    public function test_hosted_checkout_remains_disabled(): void
+    public function test_hosted_checkout_rejects_live_keys(): void
     {
         $user = User::factory()->create();
         $this->app->detectEnvironment(fn (): string => 'production');
+        config()->set('cashier.secret', 'sk_live_fixture');
         $this->actingAs($user)
             ->withSession(['_token' => 'checkout-fixture-token'])
             ->post('/checkout', ['_token' => 'checkout-fixture-token'])
-            ->assertForbidden();
+            ->assertSessionHasErrors('stripe_price_id');
     }
 
     public function test_invalid_credentials_cannot_sign_in(): void
