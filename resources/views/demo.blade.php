@@ -132,10 +132,10 @@
     <aside class="sidebar card" aria-labelledby="test-flow-heading">
         <h2 id="test-flow-heading">How to test this demo</h2>
         <ol class="steps">
-            <li><strong>Set up your test price.</strong> Use Add Stripe setup to save a recurring price ID from the Stripe test account configured for this demo.</li>
+            <li><strong>Choose a flow.</strong> One-time Checkout uses a built-in US$10 test payment. For subscription Checkout, use Add Stripe setup to save a recurring price from the configured Stripe sandbox.</li>
             <li><strong>Configure Stripe delivery.</strong> The administrator must configure test API keys and the webhook signing secret. For local testing, forward events to <code>{{ url('/stripe/webhook') }}</code> using Stripe CLI. Hosted testing uses a Stripe webhook endpoint.</li>
             <li><strong>Complete test Checkout.</strong> When enabled, use an official Stripe test card. Never use live keys or real payment details.</li>
-            <li><strong>Check the result.</strong> The return URL does not grant access. The pending return page checks automatically for up to 90 seconds and updates after the signed paid invoice is processed. Then check the paid period and protected feature.</li>
+            <li><strong>Check the result.</strong> The return URL does not confirm payment. The pending page checks automatically for up to 90 seconds and updates after signed webhook confirmation. One-time payments have their own confirmation; subscription access follows the stored paid period.</li>
         </ol>
         <p class="notice">If access is pending, check webhook delivery and the configured signing secret. Only the scenarios recorded in the source repository have been verified.</p>
     </aside>
