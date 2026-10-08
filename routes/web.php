@@ -9,6 +9,7 @@ use Laravel\Cashier\Http\Middleware\VerifyWebhookSignature;
 
 Route::get('/', [DemoController::class, 'index'])->middleware('auth')->name('demo.index');
 Route::post('/checkout', [DemoController::class, 'checkout'])->middleware('auth')->name('demo.checkout');
+Route::get('/checkout/status', [DemoController::class, 'paymentStatus'])->middleware(['auth', 'throttle:40,1'])->name('demo.payment-status');
 Route::get('/protected', [DemoController::class, 'protected'])->middleware('auth')->name('demo.protected');
 
 Route::post('/stripe/webhook', [StripeWebhookController::class, 'handleWebhook'])

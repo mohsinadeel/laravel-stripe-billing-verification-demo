@@ -6,6 +6,7 @@ use App\Models\DemoSetting;
 use App\Models\PaidPeriod;
 use App\Models\StripeEventReceipt;
 use App\StripeSandbox;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -16,6 +17,14 @@ use Stripe\Exception\ApiErrorException;
 
 class DemoController extends Controller
 {
+    public function paymentStatus(Request $request): JsonResponse
+    {
+        $paidUntil = PaidPeriod::query()->where('user_id', $request->user()->id)->max('period_end');
+
+        return response()->json(['confirmed' => $paidUntil !== null && now()->lessThan($paidUntil)])
+            ->header('Cache-Control', 'private, no-store');
+    }
+
     public function index(Request $request): View
     {
         $user = $request->user();

@@ -52,7 +52,8 @@
         @if ($hasAccess && $latestPeriod?->stripe_invoice_id)
             <div class="card success" role="status">Payment confirmed. A paid invoice has been processed, and protected access is active until {{ $paidUntil }} UTC.</div>
         @else
-            <div class="card notice" role="status">Checkout returned. Access remains pending until a signed paid-invoice webhook is processed.</div>
+            <div class="card notice" role="status" id="checkout-pending" data-status-url="{{ route('demo.payment-status') }}">Checkout returned. Access remains pending until a signed paid-invoice webhook is processed. This page will update automatically when payment is confirmed.</div>
+            <script src="{{ asset('js/checkout-status.js') }}" defer></script>
         @endif
     @elseif (request('checkout') === 'cancelled')
         <div class="card">Checkout was cancelled. No entitlement was created by the redirect.</div>
@@ -103,7 +104,7 @@
             <li><strong>Set up your test price.</strong> Use Add Stripe setup to save a recurring price ID from the Stripe test account configured for this demo.</li>
             <li><strong>Configure Stripe delivery.</strong> The administrator must configure test API keys and the webhook signing secret. For local testing, forward events to <code>{{ url('/stripe/webhook') }}</code> using Stripe CLI. Hosted testing uses a Stripe webhook endpoint.</li>
             <li><strong>Complete test Checkout.</strong> When enabled, use an official Stripe test card. Never use live keys or real payment details.</li>
-            <li><strong>Check the result.</strong> The return URL does not grant access. Refresh after the signed paid invoice is processed and check the paid period and protected feature.</li>
+            <li><strong>Check the result.</strong> The return URL does not grant access. The pending return page checks automatically for up to 90 seconds and updates after the signed paid invoice is processed. Then check the paid period and protected feature.</li>
         </ol>
         <p class="notice">If access is pending, check webhook delivery and the configured signing secret. Only the scenarios recorded in the source repository have been verified.</p>
     </aside>
