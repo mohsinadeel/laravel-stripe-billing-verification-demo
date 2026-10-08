@@ -1,6 +1,6 @@
 # Laravel Stripe billing verification demo
 
-This is a self-directed working demonstration in a synthetic Laravel application. The initial paid-subscription path was verified once in Stripe test mode (S01): a US$10 invoice was paid, the signed `invoice.payment_succeeded` webhook was accepted, and the app recorded the paid period and reported access through its expiry. See `evidence/SCENARIOS.md` for actions, observed results and limits. Hosted Checkout cancellation (S02) is verified; S03–S10 have bounded local checks, with actual recurring Stripe lifecycle and replay results still pending. This is not a client case study or evidence of production readiness.
+This is a self-directed working demonstration in a synthetic Laravel application. The initial paid-subscription path has historical local and current hosted/shared-MySQL Stripe sandbox evidence (S01): a US$10 invoice was paid, the signed invoice event returned HTTP200, its line period matches the stored expiry, and the protected feature is available. See `evidence/SCENARIOS.md` for actions, observed results and limits. Hosted Checkout cancellation (S02) is verified; S03–S10 have bounded local checks, with actual recurring Stripe lifecycle and replay results still pending. This is not a client case study or evidence of production readiness.
 
 ## Access policy
 
@@ -20,7 +20,7 @@ The invoice listener records positive test-mode payments. The controller retains
 ## Versions and sources
 
 - Laravel framework 13.34.0; PHP target 8.4; Cashier 16.8.0; Stripe PHP SDK 21.3.2. Exact dependency versions are in `composer.lock`.
-- Local runtime: Laravel Sail 1.68.0, PHP 8.4 and MySQL 8.4. The historical S01 run used the previous SQLite runtime; it has not been repeated on MySQL.
+- Local runtime: Laravel Sail 1.68.0, PHP 8.4 and MySQL 8.4. The historical S01 run used the previous SQLite runtime; the current hosted shared-MySQL run is recorded separately in the scenario evidence.
 - Official guidance checked 5 October 2026: [Laravel 13 release notes](https://laravel.com/docs/13.x/releases), [Cashier billing](https://laravel.com/docs/13.x/billing), [Stripe invoice object](https://docs.stripe.com/api/invoices/object), [Stripe invoice line object](https://docs.stripe.com/api/invoice-line-item/object), and [Stripe test clocks](https://docs.stripe.com/api/test_clocks).
 - The installed Cashier 16.8.0 / Stripe SDK 21.3.2 resolves its runtime API version to `2026-08-26.dahlia`; the hosted snapshot endpoint uses that version. S01 verified one actual test-mode invoice line: one monthly plan line with quantity 1 and a service period that matches the app record to the date; the stored expiry includes the exact timestamp. See `evidence/SCENARIOS.md`; this single run does not verify other invoice shapes or subscription lifecycle scenarios.
 
