@@ -20,6 +20,8 @@ class ConfigureStripeWebhookTest extends TestCase
                 'POST /v1/webhook_endpoints' => function (array $params): array {
                     $this->assertSame('https://demo.mohsinadeel.dev/laravel-stripe-billing-verification-demo/stripe/webhook', $params['url']);
                     $this->assertContains('invoice.payment_failed', $params['enabled_events']);
+                    $this->assertContains('checkout.session.completed', $params['enabled_events']);
+                    $this->assertContains('checkout.session.async_payment_succeeded', $params['enabled_events']);
                     $this->assertSame('2026-08-26.dahlia', $params['api_version']);
 
                     return ['id' => 'we_fixture', 'object' => 'webhook_endpoint', 'secret' => 'whsec_endpoint_fixture'];

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\DemoSetting;
+use App\Models\OneTimePayment;
 use App\Models\PaidPeriod;
 use App\Models\StripeEventReceipt;
 use App\StripeSandbox;
@@ -17,6 +18,38 @@ use Stripe\Exception\ApiErrorException;
 
 class DemoController extends Controller
 {
+    public function oneTimeCheckout(Request $request, StripeSandbox $sandbox): Checkout
+    {
+        if (! $sandbox->configured()) {
+            throw ValidationException::withMessages(['one_time_payment' => 'The administrator must configure test keys and the webhook secret.']);
+        }
+        $user = $request->user();
+        $payment = OneTimePayment::create(['user_id' => $user->id]);
+        try {
+            $checkout = $user->checkout([['price_data' => [
+                'currency' => 'usd', 'unit_amount' => 1000, 'product_data' => ['name' => 'One-time demo payment'],
+            ], 'quantity' => 1]], [
+                'mode' => 'payment', 'payment_method_types' => ['card'], 'adaptive_pricing' => ['enabled' => false],
+                'metadata' => ['demo_type' => 'one_time', 'payment_id' => (string) $payment->id],
+                'success_url' => route('demo.index').'?one_time=returned&payment='.$payment->id,
+                'cancel_url' => route('demo.index').'?one_time=cancelled&payment='.$payment->id,
+            ]);
+            $payment->update(['stripe_checkout_session_id' => $checkout->id]);
+
+            return $checkout;
+        } catch (ApiErrorException) {
+            $payment->update(['status' => 'checkout_failed']);
+            throw ValidationException::withMessages(['one_time_payment' => 'Stripe could not start the one-time test Checkout. Please retry.']);
+        }
+    }
+
+    public function oneTimeStatus(Request $request, int $payment): JsonResponse
+    {
+        $record = OneTimePayment::where('user_id', $request->user()->id)->findOrFail($payment);
+
+        return response()->json(['confirmed' => $record->status === 'paid'])->header('Cache-Control', 'private, no-store');
+    }
+
     public function paymentStatus(Request $request): JsonResponse
     {
         $paidUntil = PaidPeriod::query()->where('user_id', $request->user()->id)->max('period_end');
@@ -40,6 +73,8 @@ class DemoController extends Controller
             'latestPeriod' => PaidPeriod::query()->where('user_id', $user->id)->latest('id')->first(),
             'latestReceipt' => StripeEventReceipt::query()->where('user_id', $user->id)->latest('id')->first(),
             'priceId' => $priceId,
+            'returnedOneTimePayment' => OneTimePayment::where('user_id', $user->id)->find($request->integer('payment')),
+            'oneTimePayments' => OneTimePayment::where('user_id', $user->id)->latest('id')->limit(5)->get(),
             'checkoutConfigured' => app(StripeSandbox::class)->configured(),
             'planConfigured' => str_starts_with((string) $priceId, 'price_')
                 && $priceId !== 'price_replace_me',

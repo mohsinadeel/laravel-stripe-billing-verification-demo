@@ -48,7 +48,17 @@
     <div class="layout"><div class="content">
     @if (session('status'))<div class="card success" role="status">{{ session('status') }}</div>@endif
     @if ($errors->getBag('default')->has('stripe_price_id'))<div class="card notice" role="alert">{{ $errors->getBag('default')->first('stripe_price_id') }}</div>@endif
-    @if (request('checkout') === 'returned')
+    @error('one_time_payment')<div class="card notice" role="alert">{{ $message }}</div>@enderror
+    @if (request('one_time') === 'returned' && $returnedOneTimePayment)
+        @if ($returnedOneTimePayment->status === 'paid')
+            <div class="card success" role="status">One-time payment confirmed: US$10.00. Your subscription access is unchanged.</div>
+        @else
+            <div class="card notice" role="status" id="checkout-pending" data-status-url="{{ route('demo.one-time-status', $returnedOneTimePayment->id) }}">Checkout returned. One-time payment is pending signed webhook confirmation. This page will update automatically.</div>
+            <script src="{{ asset('js/checkout-status.js') }}" defer></script>
+        @endif
+    @elseif (request('one_time') === 'cancelled')
+        <div class="card notice" role="status">One-time Checkout was cancelled. You can start another test payment.</div>
+    @elseif (request('checkout') === 'returned')
         @if ($hasAccess && $latestPeriod?->stripe_invoice_id)
             <div class="card success" role="status">Payment confirmed. A paid invoice has been processed, and protected access is active until {{ $paidUntil }} UTC.</div>
         @else
@@ -79,7 +89,7 @@
     </section>
 
     <section class="card">
-        <h2>Actions</h2>
+        <h2>Subscription Checkout</h2>
         <p class="muted">Stripe test price: <code>{{ $planConfigured ? $priceId : 'Not configured' }}</code></p>
         <div class="toolbar">
             <button type="button" class="secondary" id="open-stripe-setup" @disabled($subscription)>{{ $planConfigured ? 'Edit Stripe setup' : 'Add Stripe setup' }}</button>
@@ -96,6 +106,27 @@
             <p class="notice">The administrator must configure test keys and the endpoint signing secret before Checkout is available.</p>
         @endif
         <p><a href="{{ route('demo.protected') }}">Check protected feature</a></p>
+    </section>
+    <section class="card">
+        <h2>One-time Checkout</h2>
+        <p>A repeatable US$10.00 sandbox payment for demonstrating Checkout. It does not create a subscription or change protected access.</p>
+        @if ($checkoutConfigured)
+            <form method="post" action="{{ route('demo.one-time-checkout') }}">@csrf<button type="submit">Start one-time test Checkout — US$10</button></form>
+        @else
+            <p class="notice">The administrator must configure test keys and the webhook secret first.</p>
+        @endif
+        @if ($oneTimePayments->isNotEmpty())
+            <h3>Recent one-time attempts</h3>
+            <ul>
+                @foreach ($oneTimePayments as $payment)
+                    <li>#{{ $payment->id }} — US$10.00 — {{ str_replace('_', ' ', $payment->status) }}
+                        @if ($payment->paid_at)
+                            — {{ $payment->paid_at }} UTC
+                        @endif
+                    </li>
+                @endforeach
+            </ul>
+        @endif
     </section>
     </div>
     <aside class="sidebar card" aria-labelledby="test-flow-heading">

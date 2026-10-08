@@ -30,7 +30,7 @@ class ConfigureStripeWebhook extends Command
 
             return self::FAILURE;
         }
-        $events = array_merge(WebhookCommand::DEFAULT_EVENTS, ['invoice.payment_failed']);
+        $events = array_merge(WebhookCommand::DEFAULT_EVENTS, ['invoice.payment_failed', 'checkout.session.completed', 'checkout.session.async_payment_succeeded']);
         try {
             $api = Cashier::stripe()->webhookEndpoints;
             foreach ($api->all(['limit' => 100])->autoPagingIterator() as $endpoint) {

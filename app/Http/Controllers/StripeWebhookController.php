@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\OneTimePayment;
 use App\Models\StripeEventReceipt;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -73,6 +74,38 @@ class StripeWebhookController extends WebhookController
     protected function handleInvoicePaymentFailed(array $payload): Response
     {
         return new Response('Failed payment observed; paid entitlement unchanged', 200);
+    }
+
+    protected function handleCheckoutSessionCompleted(array $payload): Response
+    {
+        $snapshot = $payload['data']['object'];
+        if (($snapshot['metadata']['demo_type'] ?? null) !== 'one_time' || ($snapshot['mode'] ?? null) !== 'payment') {
+            return new Response('Checkout observed', 200);
+        }
+        $session = Cashier::stripe()->checkout->sessions->retrieve($snapshot['id']);
+        $user = Cashier::findBillable($snapshot['customer']);
+        $payment = OneTimePayment::where('user_id', $user->id)->where('stripe_checkout_session_id', $session->id)
+            ->findOrFail($session->metadata->payment_id);
+        if ($session->livemode !== false || $session->customer !== $user->stripe_id || $session->mode !== 'payment'
+            || $session->status !== 'complete' || $session->metadata->demo_type !== 'one_time' || $session->amount_total !== $payment->amount || $session->currency !== $payment->currency) {
+            throw new \UnexpectedValueException('One-time Checkout does not match its payment record.');
+        }
+        if ($session->payment_status !== 'paid') {
+            return new Response('One-time payment pending', 200);
+        }
+        if (! is_string($session->payment_intent)) {
+            throw new \UnexpectedValueException('Paid Checkout is missing its payment reference.');
+        }
+        if ($payment->status !== 'paid') {
+            $payment->update(['status' => 'paid', 'paid_at' => now(), 'stripe_payment_intent_id' => $session->payment_intent]);
+        }
+
+        return new Response('One-time payment confirmed', 200);
+    }
+
+    protected function handleCheckoutSessionAsyncPaymentSucceeded(array $payload): Response
+    {
+        return $this->handleCheckoutSessionCompleted($payload);
     }
 
     protected function handleCustomerSubscriptionCreated(array $payload): Response
