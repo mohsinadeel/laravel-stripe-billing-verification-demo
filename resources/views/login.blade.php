@@ -49,7 +49,7 @@
             </div>
             <button type="submit">Log in</button>
         </form>
-        <footer><p><a href="{{ rtrim(config('services.portal_url'), '/').'/feedback?demo=stripe' }}">Suggest a feature</a></p>
+        <footer><p><a href="{{ rtrim(config('services.portal_url'), '/').'/feedback?demo=stripe' }}">Send feedback</a></p>
             <p>This demo keeps its own login session.</p>
             <p class="note">Use an account created on the main website.</p>
         </footer>
