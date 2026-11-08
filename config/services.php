@@ -1,6 +1,7 @@
 <?php
 
 return [
+    'portal_url' => env('PORTAL_URL', 'https://demo.mohsinadeel.dev/'),
 
     /*
     |--------------------------------------------------------------------------

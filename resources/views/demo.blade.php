@@ -42,6 +42,7 @@
 </head>
 <body><main>
     <div class="page-header"><h1>Stripe billing verification</h1>
+    <a class="button" href="{{ rtrim(config('services.portal_url'), '/').'/feedback?demo=stripe' }}">Suggest a feature</a>
     <form method="POST" action="{{ route('logout') }}">@csrf <button type="submit">Sign out of this demo</button></form></div>
     <p class="muted">Self-directed working demonstration. Test-mode payments only. Signed in as {{ $user->email }}.</p>
 
