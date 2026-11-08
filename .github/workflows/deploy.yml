@@ -69,11 +69,14 @@ jobs:
       - name: Prepare SSH credentials
         env:
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
         run: |
           set -euo pipefail
           umask 077
           printf '%s\n' "$SSH_PRIVATE_KEY" > "$RUNNER_TEMP/demos-deploy-key"
-          chmod 600 "$RUNNER_TEMP/demos-deploy-key"
+          test -n "$SSH_KNOWN_HOSTS" || { echo "SSH_KNOWN_HOSTS is required."; exit 1; }
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > "$RUNNER_TEMP/demos-known-hosts"
+          chmod 600 "$RUNNER_TEMP/demos-deploy-key" "$RUNNER_TEMP/demos-known-hosts"
           ssh-keygen -y -f "$RUNNER_TEMP/demos-deploy-key" > /dev/null
 
       - name: Upload built application
@@ -92,7 +95,7 @@ jobs:
           PORT="${PORT:-22}"
           SSH_OPTS=(-p "$PORT" -i "$RUNNER_TEMP/demos-deploy-key"
             -o IdentitiesOnly=yes -o BatchMode=yes
-            -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null)
+            -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$RUNNER_TEMP/demos-known-hosts")
           ssh "${SSH_OPTS[@]}" "$SSH_USERNAME@$SSH_HOST" 'command -v tar >/dev/null && echo SSH-OK'
           tar --exclude-from=.github/deploy-exclude.txt -czf - . \
             | ssh "${SSH_OPTS[@]}" "$SSH_USERNAME@$SSH_HOST" \
@@ -111,7 +114,7 @@ jobs:
           PORT="${PORT:-22}"
           SSH_OPTS=(-p "$PORT" -i "$RUNNER_TEMP/demos-deploy-key"
             -o IdentitiesOnly=yes -o BatchMode=yes
-            -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null)
+            -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$RUNNER_TEMP/demos-known-hosts")
 
           ssh "${SSH_OPTS[@]}" "$SSH_USERNAME@$SSH_HOST" bash -s -- "$CONFIGURE_STRIPE_WEBHOOK" <<'REMOTE'
           set -euo pipefail
@@ -180,4 +183,4 @@ jobs:
             sudo kill "$(cat "$RUNNER_TEMP/demos-openvpn.pid")" || true
           fi
           rm -f "$RUNNER_TEMP/demos.ovpn" "$RUNNER_TEMP/demos-vpn.auth" \
-            "$RUNNER_TEMP/demos-deploy-key"
+            "$RUNNER_TEMP/demos-deploy-key" "$RUNNER_TEMP/demos-known-hosts"
