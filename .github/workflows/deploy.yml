@@ -73,7 +73,7 @@ jobs:
         run: |
           set -euo pipefail
           umask 077
-          printf '%s\n' "$SSH_PRIVATE_KEY" > "$RUNNER_TEMP/demos-deploy-key"
+          printf '%s\n' "$SSH_PRIVATE_KEY" | tr -d '\r' > "$RUNNER_TEMP/demos-deploy-key"
           test -n "$SSH_KNOWN_HOSTS" || { echo "SSH_KNOWN_HOSTS is required."; exit 1; }
           printf '%s\n' "$SSH_KNOWN_HOSTS" > "$RUNNER_TEMP/demos-known-hosts"
           chmod 600 "$RUNNER_TEMP/demos-deploy-key" "$RUNNER_TEMP/demos-known-hosts"
